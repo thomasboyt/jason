@@ -27,7 +27,6 @@ var Token = function(type, value) {
 };
 
 var match = function(value, noMatchCondition, ...patterns) {
-  console.log(patterns);
   for ( let [pattern, callback] of patterns ) {
 
     if ( typeof pattern !== 'object' || pattern === null ) {
