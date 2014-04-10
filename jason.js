@@ -1,13 +1,15 @@
+/* jshint esnext: true, node: true, undef: false */
+
 require('./traceur-runtime');
 
 // some tokens!
-var LEFT_BRACE = '{';
-var RIGHT_BRACE = '}';
-var LEFT_BRACKET = '[';
-var RIGHT_BRACKET = ']';
-var COLON = ':';
-var COMMA = ',';
-var QUOTE = '"';
+const LEFT_BRACE = '{';
+const RIGHT_BRACE = '}';
+const LEFT_BRACKET = '[';
+const RIGHT_BRACKET = ']';
+const COLON = ':';
+const COMMA = ',';
+const QUOTE = '"';
 
 var ltrim = function(str) {
   return str.replace(/^\s+/, '');
@@ -18,6 +20,15 @@ var Token = function(type, value) {
   this.value = value;
 };
 
+var match = function(value, noMatchCondition, ...patterns) {
+  for ( let [pattern, callback] of patterns ) {
+    if ( value === pattern ) {
+      return callback(value);
+    }
+  }
+  return noMatchCondition(value);
+};
+
 
 // Lexing
 // =================
@@ -25,62 +36,54 @@ var Token = function(type, value) {
 var lexString = function(input, acc) {
   // TODO: a bunch of weird control chars
   if ( !acc ) { acc = ''; }
-  var char = input[0];
+  let char = input[0];
 
-  switch(char) {
-    case undefined:
-      throw new Error('No matching quote found for string');
-    case QUOTE:
-      return { sym: new Token('string', acc), rest: input.slice(1) };
-    default:
-      return lexString(input.slice(1), acc + char);
-  }
+  return match(
+    char,
+    () => lexString(input.slice(1), acc + char),
+    [QUOTE, () => [new Token('string', acc), input.slice(1)]],
+    [undefined, () => { throw new Error('No matching quote found for string'); }]
+  );
+};
+
+var lexCharacter = function(input) {
+  return [ new Token(input[0]), input.slice(1) ];
 };
 
 var lex = function(input) {
   // return an array of tokens
   input = ltrim(input);
-  var char = input[0];
+  let char = input[0];
 
   // poor man's pattern matching
-  var sym;
-  var rest;
-  switch(char) {
-    // TODO: less copy-paste here, derp
-    case undefined:
-      return null;
-    case LEFT_BRACE:
-      sym = new Token(LEFT_BRACE);
-      break;
-    case RIGHT_BRACE:
-      sym = new Token(RIGHT_BRACE);
-      break;
-    case LEFT_BRACKET:
-      sym = new Token(LEFT_BRACE);
-      break;
-    case RIGHT_BRACKET:
-      sym = new Token(RIGHT_BRACKET);
-      break;
-    case COMMA:
-      sym = new Token(COMMA);
-      break;
-    case COLON:
-      sym = new Token(COLON);
-      break;
+  let rest = input.slice(1);
 
-    // interesting ones
-    case QUOTE:
-      var res = lexString(input.slice(1));
-      sym = res.sym;
-      rest = res.rest;
-      break;
+  let [sym, rest] = match(
+    char,
 
-    // TODO: digit, literals (true, false, null)
+    // no-match condition
+    () => { throw new Error('Failed to parse character ' + char); },
 
-    default:
-      throw new Error('Could not parse character: ' + char);
+    // end of input
+    [undefined, () => [ null, null ]],
+
+    // single characters
+    [LEFT_BRACE, () => lexCharacter(input)],
+    [RIGHT_BRACE, () => lexCharacter(input)],
+    [LEFT_BRACKET, () => lexCharacter(input)],
+    [RIGHT_BRACKET, () => lexCharacter(input)],
+    [COMMA, () => lexCharacter(input)],
+    [COLON, () => lexCharacter(input)],
+
+    // more interesting things
+    [QUOTE, () => lexString(rest)]
+    // TODO: numbers, true/false/null
+  );
+
+  if ( rest === null ) {
+    return [sym];
   }
-  if ( !rest ) { rest = input.slice(1); }
+
   return [sym].concat(lex(rest));
 };
 
