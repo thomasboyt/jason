@@ -11,6 +11,12 @@ const COLON = ':';
 const COMMA = ',';
 const QUOTE = '"';
 
+const TRUE = 'true';
+const FALSE = 'false';
+const NULL = 'null';
+
+const ALPHA = /[a-z]/;
+
 var ltrim = function(str) {
   return str.replace(/^\s+/, '');
 };
@@ -21,10 +27,21 @@ var Token = function(type, value) {
 };
 
 var match = function(value, noMatchCondition, ...patterns) {
+  console.log(patterns);
   for ( let [pattern, callback] of patterns ) {
-    if ( value === pattern ) {
-      return callback(value);
+
+    if ( typeof pattern !== 'object' || pattern === null ) {
+      if ( value === pattern ) {
+        return callback(value);
+      }
+    } else if ( pattern instanceof RegExp ) {
+      if ( pattern.test(value) === true ) {
+        return callback(value);
+      }
+    } else {
+      throw new Error('Couldn\'t parse pattern');
     }
+
   }
   return noMatchCondition(value);
 };
@@ -37,12 +54,32 @@ var lexString = function(input, acc) {
   // TODO: a bunch of weird control chars
   if ( !acc ) { acc = ''; }
   let char = input[0];
+  let rest = input.slice(1);
 
   return match(
     char,
-    () => lexString(input.slice(1), acc + char),
-    [QUOTE, () => [new Token('string', acc), input.slice(1)]],
+    () => lexString(rest, acc + char),
+    [QUOTE, () => [new Token('string', acc), rest]],
     [undefined, () => { throw new Error('No matching quote found for string'); }]
+  );
+};
+
+var lexAlpha = function(input, acc) {
+  // TODO: a bunch of weird control chars
+  if ( !acc ) { acc = ''; }
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => match(
+      acc,
+      () => { throw new Error('Unexpected token ' + acc); },
+      [TRUE, () => [new Token(TRUE), rest]],
+      [FALSE, () => [new Token(FALSE), rest]],
+      [NULL, () => [new Token(NULL), rest]]
+    ),
+    [ALPHA, () => lexAlpha(rest, acc + char)]
   );
 };
 
@@ -76,7 +113,8 @@ var lex = function(input) {
     [COLON, () => lexCharacter(input)],
 
     // more interesting things
-    [QUOTE, () => lexString(rest)]
+    [QUOTE, () => lexString(rest)],
+    [/[a-z]/, () => lexAlpha(input)]
     // TODO: numbers, true/false/null
   );
 
