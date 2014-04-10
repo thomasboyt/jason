@@ -4,7 +4,7 @@ var clean = require('gulp-clean');
 
 // Build ES6 src to ES5
 gulp.task('traceur', function() {
-  return gulp.src([traceur.RUNTIME_PATH, './jason.js'])
+  return gulp.src([traceur.RUNTIME_PATH, './src/**/*.js'])
     .pipe(traceur({
       blockBinding: true
     }))
