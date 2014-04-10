@@ -1,4 +1,6 @@
-import './traceur-runtime';
+require('./traceur-runtime');
+let m = require('mori');
+
 import { match, ltrim } from './util';
 
 // some tokens!
@@ -9,6 +11,15 @@ const RIGHT_BRACKET = ']';
 const COLON = ':';
 const COMMA = ',';
 const QUOTE = '"';
+
+// number things
+const DIGIT = /[0-9]/;
+const ZERO = '0';
+const NONZERO_DIGIT = /[1-9]/;
+const E = /[e|E]/;
+const PERIOD = '.';
+const PLUS = '+';
+const MINUS = '-';
 
 const TRUE = 'true';
 const FALSE = 'false';
@@ -27,10 +38,10 @@ let Token = function(type, value) {
 // =================
 
 let lexString = function(input, acc = '') {
-  // TODO: a bunch of weird control chars
   let char = input[0];
   let rest = input.slice(1);
 
+  // TODO: a bunch of weird control chars
   return match(
     char,
     () => lexString(rest, acc + char),
@@ -40,7 +51,6 @@ let lexString = function(input, acc = '') {
 };
 
 let lexAlpha = function(input, acc = '') {
-  // TODO: a bunch of weird control chars
   let char = input[0];
   let rest = input.slice(1);
 
@@ -57,21 +67,104 @@ let lexAlpha = function(input, acc = '') {
   );
 };
 
-let lexNumber = function(input, acc) {
-  // TODO: this shit is bananas: http://www.json.org/number.gif
+/**
+ * A number token has:
+ *   negative (optional)
+ *   int
+ *   frac (optional)
+ *   exp (optional)
+ *   expNegative (optional)
+ */
+
+let lexExpPiece = function(input, acc) {
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => [new Token('number', m.clj_to_js(acc)), input],
+    [DIGIT, () => lexExpPiece(rest, m.assoc(acc, 'exp', (m.get(acc, 'exp') || '') + char))]
+  );
+};
+
+let lexExp = function(input, acc) {
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => [new Token('number', m.clj_to_js(acc)), input],
+    [PLUS, () => lexExpPiece(rest, acc)],
+    [MINUS, () => lexExpPiece(rest, m.assoc(acc, 'expNegative', true))],
+    [DIGIT, () => lexExpPiece(input, acc)]
+  );
+};
+
+let lexFracPiece = function(input, acc) {
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => [new Token('number', m.clj_to_js(acc)), input],
+    [DIGIT, () => lexFracPiece(rest, m.assoc(acc, 'frac', (m.get(acc, 'frac') || '') + char))],
+    [E, () => lexExp(rest, acc)]
+  );
+};
+
+let lexOptionalDecimal = function(input, acc) {
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => [new Token('number', m.clj_to_js(acc)), input],
+    [PERIOD, () => lexFracPiece(rest, acc)],
+    [E, () => lexExp(rest, acc)]
+  );
+};
+
+let lexIntPiece = function(input, acc) {
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => [new Token('number', m.clj_to_js(acc)), input],
+    [DIGIT, () => lexIntPiece(rest, m.assoc(acc, 'int', (m.get(acc, 'int') || '') + char))],
+    [PERIOD, () => lexFracPiece(rest, acc)],
+    [E, () => lexExp(rest, acc)]
+  );
+};
+
+let lexNumber = function(input, acc = m.hash_map()) {
+  // http://www.json.org/number.gif
+
+  let char = input[0];
+  let rest = input.slice(1);
+
+  return match(
+    char,
+    () => { throw new Error('Unexpected token ' + char); },
+    [ZERO, () => lexOptionalDecimal(rest, m.assoc(acc, 'int', '0'))],
+    [NONZERO_DIGIT, () => lexIntPiece(input, acc)],
+    [MINUS, () => {
+      if ( m.get(acc, 'negative') === true ) {
+        throw new Error('Unexpected token ' + char);
+      }
+      return lexNumber(rest, m.assoc(acc, 'negative', true));
+    }]
+  );
 };
 
 let lexCharacter = function(input) {
   return [ new Token(input[0]), input.slice(1) ];
 };
 
-let lex = function(input) {
+export let lex = function(input) {
   // return an array of tokens
   input = ltrim(input);
   let char = input[0];
-
-  // poor man's pattern matching
-  let rest = input.slice(1);
 
   let [sym, rest] = match(
     char,
@@ -91,10 +184,12 @@ let lex = function(input) {
     [COLON, () => lexCharacter(input)],
 
     // more interesting things
-    [QUOTE, () => lexString(rest)],
+    [QUOTE, () => lexString(input.slice(1))],
     [ALPHA, () => lexAlpha(input)],
     [NUMBER_START, () => lexNumber(input)]
   );
+
+  console.log(sym);
 
   if ( rest === null ) {
     return [sym];
@@ -107,8 +202,10 @@ let lex = function(input) {
 // Parsing
 // =================
 
-let parse = function(tokens) {
-  // ...
+export let parse = function(tokens) {
+  let current = tokens[0];
+
+  // TODO: everything
 };
 
 export default function(input) {

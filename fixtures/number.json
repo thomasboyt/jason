@@ -1,0 +1,17 @@
+{
+  "one": 1,
+  "zero": 0,
+
+  "int": 1337,
+  "negative_int": -1337,
+
+  "frac": 1.01,
+  "leading_zero_frac": 0.01,
+
+  "exp": 1e10,
+  "exp_positive": 1e+10,
+  "exp_negative": 1e-10,
+  "exp_cap": 1E10,
+
+  "frac_exp": 1.01e+12
+} 
