@@ -1,3 +1,5 @@
+require('./traceur-runtime');
+
 // some tokens!
 var LEFT_BRACE = '{';
 var RIGHT_BRACE = '}';
