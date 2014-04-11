@@ -59,9 +59,9 @@ let lexAlpha = makeLexFn((cur, rest, acc) => match(
   () => match(
     acc,
     () => { throw new Error('Unexpected token ' + acc); },
-    [TRUE, () => [new Token(TRUE), rest]],
-    [FALSE, () => [new Token(FALSE), rest]],
-    [NULL, () => [new Token(NULL), rest]]
+    [TRUE, () => [new Token(TRUE), cur + rest]],
+    [FALSE, () => [new Token(FALSE), cur + rest]],
+    [NULL, () => [new Token(NULL), cur + rest]]
   ),
   [ALPHA, () => lexAlpha(rest, (acc || '') + cur)]
 ));
