@@ -1,14 +1,7 @@
 import { match, ltrim } from './util';
-let m = require('mori');
+import { tokens as t } from './constants';
 
-// some tokens!
-export const LEFT_BRACE = '{';
-export const RIGHT_BRACE = '}';
-export const LEFT_BRACKET = '[';
-export const RIGHT_BRACKET = ']';
-export const COLON = ':';
-export const COMMA = ',';
-export const QUOTE = '"';
+let m = require('mori');
 
 // number things
 const DIGIT = /[0-9]/;
@@ -18,14 +11,9 @@ const E = /[e|E]/;
 const PERIOD = '.';
 const PLUS = '+';
 const MINUS = '-';
-
-const TRUE = 'true';
-const FALSE = 'false';
-const NULL = 'null';
+const NUMBER_START = /[-|\d]/;
 
 const ALPHA = /[a-z]/;
-
-const NUMBER_START = /[-|\d]/;
 
 let Token = function(type, value) {
   this.type = type;
@@ -47,7 +35,7 @@ function makeLexFn(cb) {
 let lexString = makeLexFn((cur, rest, acc) => match(
   cur,
   () => lexString(rest, (acc || '') + cur),
-  [QUOTE, () => [new Token('string', acc), rest]],
+  [t.QUOTE, () => [new Token(t.STRING, acc), rest]],
   [undefined, () => { throw new Error('No matching quote found for string'); }]
 ));
 
@@ -59,9 +47,9 @@ let lexAlpha = makeLexFn((cur, rest, acc) => match(
   () => match(
     acc,
     () => { throw new Error('Unexpected token ' + acc); },
-    [TRUE, () => [new Token(TRUE), cur + rest]],
-    [FALSE, () => [new Token(FALSE), cur + rest]],
-    [NULL, () => [new Token(NULL), cur + rest]]
+    [t.TRUE, () => [new Token(t.TRUE), cur + rest]],
+    [t.FALSE, () => [new Token(t.FALSE), cur + rest]],
+    [t.NULL, () => [new Token(t.NULL), cur + rest]]
   ),
   [ALPHA, () => lexAlpha(rest, (acc || '') + cur)]
 ));
@@ -80,13 +68,13 @@ let lexAlpha = makeLexFn((cur, rest, acc) => match(
 
 let lexExpPiece = makeLexFn((cur, rest, acc) => match(
   cur,
-  () => [new Token('number', m.clj_to_js(acc)), cur + rest],
+  () => [new Token(t.NUMBER, m.clj_to_js(acc)), cur + rest],
   [DIGIT, () => lexExpPiece(rest, m.assoc(acc, 'exp', (m.get(acc, 'exp') || '') + cur))]
 ));
 
 let lexExp = makeLexFn((cur, rest, acc) => match(
   cur,
-  () => [new Token('number', m.clj_to_js(acc)), cur + rest],
+  () => [new Token(t.NUMBER, m.clj_to_js(acc)), cur + rest],
   [PLUS, () => lexExpPiece(rest, acc)],
   [MINUS, () => lexExpPiece(rest, m.assoc(acc, 'expNegative', true))],
   [DIGIT, () => lexExpPiece(cur + rest, acc)]
@@ -94,21 +82,21 @@ let lexExp = makeLexFn((cur, rest, acc) => match(
 
 let lexFracPiece = makeLexFn((cur, rest, acc) => match(
   cur,
-  () => [new Token('number', m.clj_to_js(acc)), cur + rest],
+  () => [new Token(t.NUMBER, m.clj_to_js(acc)), cur + rest],
   [DIGIT, () => lexFracPiece(rest, m.assoc(acc, 'frac', (m.get(acc, 'frac') || '') + cur))],
   [E, () => lexExp(rest, acc)]
 ));
 
 let lexOptionalDecimal = makeLexFn((cur, rest, acc) => match(
   cur,
-  () => [new Token('number', m.clj_to_js(acc)), cur + rest],
+  () => [new Token(t.NUMBER, m.clj_to_js(acc)), cur + rest],
   [PERIOD, () => lexFracPiece(rest, acc)],
   [E, () => lexExp(rest, acc)]
 ));
 
 let lexIntPiece = makeLexFn((cur, rest, acc) => match(
   cur,
-  () => [new Token('number', m.clj_to_js(acc)), cur + rest],
+  () => [new Token(t.NUMBER, m.clj_to_js(acc)), cur + rest],
   [DIGIT, () => lexIntPiece(rest, m.assoc(acc, 'int', (m.get(acc, 'int') || '') + cur))],
   [PERIOD, () => lexFracPiece(rest, acc)],
   [E, () => lexExp(rest, acc)]
@@ -158,15 +146,15 @@ export default function lex(input) {
     [undefined, () => [ null, null ]],
 
     // single characters
-    [LEFT_BRACE, () => lexCharacter(input)],
-    [RIGHT_BRACE, () => lexCharacter(input)],
-    [LEFT_BRACKET, () => lexCharacter(input)],
-    [RIGHT_BRACKET, () => lexCharacter(input)],
-    [COMMA, () => lexCharacter(input)],
-    [COLON, () => lexCharacter(input)],
+    [t.LEFT_BRACE, () => lexCharacter(input)],
+    [t.RIGHT_BRACE, () => lexCharacter(input)],
+    [t.LEFT_BRACKET, () => lexCharacter(input)],
+    [t.RIGHT_BRACKET, () => lexCharacter(input)],
+    [t.COMMA, () => lexCharacter(input)],
+    [t.COLON, () => lexCharacter(input)],
 
     // more interesting things
-    [QUOTE, () => lexString(input.slice(1))],
+    [t.QUOTE, () => lexString(input.slice(1))],
     [ALPHA, () => lexAlpha(input)],
     [NUMBER_START, () => lexNumber(input)]
   );

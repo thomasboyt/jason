@@ -1,0 +1,6 @@
+{
+  "array": [
+    "foo", 1.23, { "bar": "baz" }
+  ],
+  "parsing": ["is", "hard"]
+}

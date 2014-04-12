@@ -4,15 +4,7 @@ let m = require('mori');
 import lex from './lex';
 import { match } from './util';
 
-import {
-  LEFT_BRACE,
-  RIGHT_BRACE,
-  LEFT_BRACKET,
-  RIGHT_BRACKET,
-  COLON,
-  COMMA,
-  QUOTE
-} from './lex';
+import { tokens as t } from './constants';
 
 // split arr into Head And Tail (hat)
 let hat = (arr) => [arr[0], arr.slice(1)];
@@ -44,74 +36,98 @@ let toNumber = (val) => {
 // Parsing
 // =================
 
-function makeParseFn(cb) {
-  return function(stream, ...args) {
-    let cur = stream[0];
-    let rest = stream.slice(1);
-    return cb(cur, rest, ...args);
-  };
-}
+let makeParseFn = (cb) => (stream, ...args) => {
+  let cur = stream[0];
+  let rest = stream.slice(1);
+  return cb(cur, rest, ...args);
+};
 
 let assoc = (obj, key, val) => {
-  let clone = Object.assign({}, obj);
+  let clone;
+  if ( Array.isArray(obj) ) {
+    // TODO: actually clone
+    clone = obj;
+  } else {
+    clone = Object.assign({}, obj);
+  }
   clone[key] = val;
   return clone;
 };
 
 let parseAfterValue = makeParseFn((cur, rest, acc) => matchToken(
   cur.type,
-  [COMMA, () => parseKeyValue(rest, acc)],
-  [RIGHT_BRACE, () => [acc, rest]]
+  [t.COMMA, () => parseKeyValue(rest, acc)],
+  [t.RIGHT_BRACE, () => [acc, rest]]
 ));
 
 let parseValue = makeParseFn((cur, rest, keyName, acc) => {
-  let [accP, restP] = matchToken(
+  
+  let assocValue = (val) => [assoc(acc, keyName, val), rest];
+
+  return matchToken(
     cur.type,
-    ['string', () => [assoc(acc, keyName, cur.value), rest]],
-    ['number', () => [assoc(acc, keyName, toNumber(cur.value)), rest]],
-    ['true', () => [assoc(acc, keyName, true), rest]],
-    ['false', () => [assoc(acc, keyName, false), rest]],
-    ['null', () => [assoc(acc, keyName, null), rest]],
-    [LEFT_BRACE, () => {
+    [t.STRING, () => assocValue(cur.value)],
+    [t.NUMBER, () => assocValue(toNumber(cur.value))],
+    [t.TRUE, () => assocValue(true)],
+    [t.FALSE, () => assocValue(false)],
+    [t.NULL, () => assocValue(null)],
+    [t.LEFT_BRACE, () => {
       let [obj, restP] = parseObject(rest);
+      return [assoc(acc, keyName, obj), restP];
+    }],
+    [t.LEFT_BRACKET, () => {
+      let [obj, restP] = parseArray(rest);
       return [assoc(acc, keyName, obj), restP];
     }]
   );
-
-  return parseAfterValue(restP, accP);
 });
 
 let parseSeparator = (cur, rest, cb) => matchToken(
   cur.type,
-  [COLON, () => cb(rest)]
+  [t.COLON, () => rest]
 );
 
 let parseKeyValue = makeParseFn((cur, rest, acc) => matchToken(
   cur.type,
-  ['string', () => {
+  [t.STRING, () => {
+    // TODO: less imperative?
     let keyName = cur.value;
-    let [curP, restP] = hat(rest);
-    return parseSeparator(curP, restP, (rest) => parseValue(rest, keyName, acc));
+    let restP = parseSeparator(...hat(rest));
+    let [accP, restPP] = parseValue(restP, keyName, acc);
+    return parseAfterValue(restPP, accP);
   }]
 ));
 
 // http://www.json.org/object.gif
-let parseObject = makeParseFn((cur, rest) => match(
+let parseObject = makeParseFn((cur, rest) => matchToken(
   cur.type,
-  () => { throw new Error('Unexpected ' + cur.type); },
-  ['string', () => parseKeyValue([cur, ...rest], {})],
-  [RIGHT_BRACE, () => [{}, rest]]
+  [t.STRING, () => parseKeyValue([cur, ...rest], {})],
+  [t.RIGHT_BRACE, () => [{}, rest]]
+));
+
+let parseArrayEntry = (rest, acc) => {
+  let [accP, [curP, ...restP]] = parseValue(rest, acc.length, acc);
+  return matchToken(
+    curP.type,
+    [t.COMMA, () => parseArrayEntry(restP, accP)],
+    [t.RIGHT_BRACKET, () => [accP, restP]]
+  );
+};
+
+let parseArray = makeParseFn((cur, rest) => match(
+  cur.type,
+  () => parseArrayEntry([cur, ...rest], []),
+  [t.RIGHT_BRACKET, () => [[], rest]]
 ));
 
 let parseDocument = function(tokens) {
   let cur = tokens[0];
   let rest = tokens.slice(1);
 
-  let [acc, rest] = match(
+  let [acc, rest] = matchToken(
     cur.type,
-    () => { throw new Error('Unexpected ' + cur.type); },
-    [LEFT_BRACE, () => parseObject(rest)],
-    [LEFT_BRACKET, () => parseArray(rest, [])]
+    [t.LEFT_BRACE, () => parseObject(rest)],
+    [t.LEFT_BRACKET, () => parseArray(rest)]
   );
 
   if ( rest !== null && rest[0] !== null ) {
@@ -123,5 +139,6 @@ let parseDocument = function(tokens) {
 
 export default function(input) {
   let tokens = lex(input);
+  console.log(tokens);
   return parseDocument(tokens);
 }
