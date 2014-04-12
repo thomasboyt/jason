@@ -2,12 +2,9 @@ require('./traceur-runtime');
 let m = require('mori');
 
 import lex from './lex';
-import { match } from './util';
+import { match, hat, assoc } from './util';
 
 import { tokens as t } from './constants';
-
-// split arr into Head And Tail (hat)
-let hat = (arr) => [arr[0], arr.slice(1)];
 
 let matchToken = (value, ...patterns) => match(
   value,
@@ -40,18 +37,6 @@ let makeParseFn = (cb) => (stream, ...args) => {
   let cur = stream[0];
   let rest = stream.slice(1);
   return cb(cur, rest, ...args);
-};
-
-let assoc = (obj, key, val) => {
-  let clone;
-  if ( Array.isArray(obj) ) {
-    // TODO: actually clone
-    clone = obj;
-  } else {
-    clone = Object.assign({}, obj);
-  }
-  clone[key] = val;
-  return clone;
 };
 
 let parseAfterValue = makeParseFn((cur, rest, acc) => matchToken(
@@ -139,6 +124,5 @@ let parseDocument = function(tokens) {
 
 export default function(input) {
   let tokens = lex(input);
-  console.log(tokens);
   return parseDocument(tokens);
 }

@@ -2,6 +2,21 @@ export let ltrim = function(str) {
   return str.replace(/^\s+/, '');
 };
 
+// split arr into Head And Tail (hat)
+export let hat = (arr) => [arr[0], arr.slice(1)];
+
+export let assoc = (obj, key, val) => {
+  let clone;
+  if ( Array.isArray(obj) ) {
+    // TODO: actually clone
+    clone = obj;
+  } else {
+    clone = Object.assign({}, obj);
+  }
+  clone[key] = val;
+  return clone;
+};
+
 /**
  * Poor man's pattern matching.
  * 
