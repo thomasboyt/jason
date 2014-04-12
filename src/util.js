@@ -5,12 +5,14 @@ export let ltrim = function(str) {
 // split arr into Head And Tail (hat)
 export let hat = (arr) => [arr[0], arr.slice(1)];
 
+// return a copy of obj with key: val added
 export let assoc = (obj, key, val) => {
   let clone;
   if ( Array.isArray(obj) ) {
     // TODO: actually clone
     clone = obj;
   } else {
+    // TODO: this doesn't actually do a deep clone, just surface :(
     clone = Object.assign({}, obj);
   }
   clone[key] = val;
