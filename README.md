@@ -1,4 +1,4 @@
-here's a really weird JS parser I wrote in ES6. to run:
+here's a really weird JSON parser I wrote in ES6. to run:
 
 ```
 npm install
